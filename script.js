@@ -2,9 +2,32 @@
     'use strict';
 
     // ============================================================
-    //  API KEYS
+    //  API KEYS - Works Locally AND on Vercel
     // ============================================================
-    const WEATHER_API_KEY = CONFIG.WEATHER_API_KEY;
+    
+    // Try to get API key from multiple sources:
+    // 1. Vercel environment variable (production)
+    // 2. config.js file (local development)
+    // 3. Hardcoded fallback (if both fail)
+    
+    let WEATHER_API_KEY;
+    
+    // Check for Vercel environment variable
+    if (typeof process !== 'undefined' && process.env && process.env.CONFIG_WEATHER_API_KEY) {
+        WEATHER_API_KEY = process.env.CONFIG_WEATHER_API_KEY;
+        console.log('✅ Using Vercel environment variable');
+    } 
+    // Check for config.js (local development)
+    else if (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.WEATHER_API_KEY) {
+        WEATHER_API_KEY = window.CONFIG.WEATHER_API_KEY;
+        console.log('✅ Using config.js');
+    } 
+    // Fallback (only for testing)
+    else {
+        console.warn('⚠️ No API key found. Using fallback key.');
+        WEATHER_API_KEY = '094d3106deb98dd14be970d8cb50bd92';
+    }
+
     const WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
     const FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
     const AQI_URL = 'https://api.openweathermap.org/data/2.5/air_pollution';
@@ -126,19 +149,51 @@
     let favorites = [];
 
     // ============================================================
-    //  THEME
-    // ============================================================
-    function getTheme() {
-        return localStorage.getItem(THEME_KEY) || 'light';
-    }
+//  THEME - Fixed Version
+// ============================================================
 
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
-        localStorage.setItem(THEME_KEY, theme);
-    }
+function getTheme() {
+    return localStorage.getItem(THEME_KEY) || 'light';
+}
 
+function setTheme(theme) {
+    // Set the data-theme attribute on the HTML element
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // Update the button icon and label
+    const themeIcon = document.getElementById('themeIcon');
+    const themeLabel = document.getElementById('themeLabel');
+    
+    if (themeIcon && themeLabel) {
+        if (theme === 'dark') {
+            themeIcon.className = 'fas fa-sun';
+            themeLabel.textContent = 'Light';
+        } else {
+            themeIcon.className = 'fas fa-moon';
+            themeLabel.textContent = 'Dark';
+        }
+    }
+    
+    // Save to localStorage
+    localStorage.setItem(THEME_KEY, theme);
+    
+    console.log('🌓 Theme changed to:', theme);
+}
+
+// Make sure the event listener is added
+document.addEventListener('DOMContentLoaded', function() {
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        console.log('✅ Theme toggle button found');
+        themeToggle.addEventListener('click', function() {
+            const currentTheme = getTheme();
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        });
+    } else {
+        console.error('❌ Theme toggle button not found!');
+    }
+});
     // ============================================================
     //  FAVORITES
     // ============================================================
@@ -683,33 +738,25 @@
             if (!radarImage) return;
         }
 
-        // Show loading state
         radarImage.classList.add('loading');
 
-        // Cycle to next image
         currentRadarIndex = (currentRadarIndex + 1) % RADAR_IMAGES.length;
         const imageUrl = RADAR_IMAGES[currentRadarIndex];
 
-        // Update the image
         radarImage.src = imageUrl;
         radarImage.alt = 'Weather Radar';
 
-        // Update timestamp
         const updateTime = document.getElementById('radarUpdateTime');
         if (updateTime) {
             updateTime.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
         }
 
-        // Image loaded successfully
         radarImage.onload = function() {
             radarImage.classList.remove('loading');
             radarImage.classList.add('loaded');
-            console.log('✅ Radar updated successfully');
         };
 
-        // If image fails to load, try the next one
         radarImage.onerror = function() {
-            console.warn('⚠️ Radar image failed, trying next...');
             currentRadarIndex = (currentRadarIndex + 1) % RADAR_IMAGES.length;
             radarImage.src = RADAR_IMAGES[currentRadarIndex];
         };
@@ -744,7 +791,6 @@
         cityName.textContent = city;
         countryCode.textContent = country;
 
-        // Set weather icon
         const iconClass = getWeatherIconClass(iconCode);
         weatherIcon.className = `fas ${iconClass}`;
         weatherIcon.style.color = 'var(--color-primary)';
@@ -788,21 +834,16 @@
         lastWeatherData = weatherInfo;
         updateFavoriteButton();
 
-        // Add to search history
         addToHistory(city);
 
-        // AI Recommendations
         const message = generateHumanRecommendations(weatherInfo);
         aiRecommendations.innerHTML = renderHumanMessage(message);
 
-        // Alerts
         const alerts = checkWeatherAlerts(weatherInfo);
         displayAlerts(alerts);
 
-        // Store coordinates for forecast & AQI
         lastCoords = { lat: data.coord.lat, lon: data.coord.lon };
 
-        // Fetch forecast and AQI
         fetchForecast(data.coord.lat, data.coord.lon);
         fetchAirQuality(data.coord.lat, data.coord.lon);
     }
@@ -941,9 +982,7 @@
         loadFavorites();
         renderSearchHistory();
 
-        // Update radar image
         updateRadarImage();
-        // Update radar every 5 minutes
         setInterval(updateRadarImage, 300000);
 
         const last = getLastCity();
